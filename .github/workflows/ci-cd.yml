@@ -3,9 +3,9 @@ name: Pharmacy Backend CI/CD Pipeline
 # Trigger pipeline on push, pull request, or manual dispatch
 on:
   push:
-    branches: [ "feature/backend-tests" ]
+    branches: [ "feature/ci-cd" ]
   pull_request:
-    branches: [ "feature/backend-tests" ]
+    branches: [ "feature/ci-cd" ]
   workflow_dispatch: # Allows manual trigger from GitHub Actions UI
 
 jobs:
@@ -26,9 +26,9 @@ jobs:
           distribution: 'temurin'
           cache: 'maven' # Caches Maven dependencies for faster builds
 
-      # Step 3: Run comprehensive automated test suite
+      # Step 3: Run comprehensive automated test suite with the isolated test profile
       - name: Run Automated Tests
-        run: mvn test
+        run: mvn test -Dspring.profiles.active=test
 
       # Step 4: Package application into an executable deployable WAR artifact
       - name: Build WAR Package
