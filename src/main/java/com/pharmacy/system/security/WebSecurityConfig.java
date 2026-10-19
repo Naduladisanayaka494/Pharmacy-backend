@@ -22,7 +22,7 @@ public class WebSecurityConfig {
     private final AuthenticationProvider authenticationProvider;
 
     private static final String[] PUBLIC_URLS = {
-            "/api/v1/auth/**",
+            "/api/v1/auth/login",
             "/v3/api-docs/**",
             "/v3/api-docs",
             "/swagger-ui/**",
