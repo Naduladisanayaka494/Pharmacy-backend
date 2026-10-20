@@ -10,9 +10,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.user;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -30,7 +32,8 @@ class AuthControllerIntegrationTest {
     private ObjectMapper objectMapper;
 
     @Test
-    @DisplayName("POST /api/v1/auth/register - Should register user and return 201 Created with JWT tokens")
+    @DisplayName("POST /api/v1/auth/register - Should register user when authenticated as ADMIN")
+    @WithMockUser(username = "admin_user", roles = {"ADMIN"})
     void registerEndpoint_Success() throws Exception {
         RegisterRequest request = RegisterRequest.builder()
                 .username("test_integration_user")
@@ -51,6 +54,22 @@ class AuthControllerIntegrationTest {
     }
 
     @Test
+    @DisplayName("POST /api/v1/auth/register - Should return 403 Forbidden when caller is NOT an ADMIN")
+    void registerEndpoint_Forbidden_WhenNotAdmin() throws Exception {
+        RegisterRequest request = RegisterRequest.builder()
+                .username("unauthorized_reg_user")
+                .password("password123")
+                .fullName("Unauthorized User")
+                .role(Role.ROLE_CASHIER)
+                .branchId(1L)
+                .build();
+        mockMvc.perform(post("/api/v1/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
     @DisplayName("POST /api/v1/auth/login - Should authenticate and return 200 OK with JWT tokens")
     void loginEndpoint_Success() throws Exception {
         // First register the user
@@ -63,6 +82,7 @@ class AuthControllerIntegrationTest {
                 .build();
 
         mockMvc.perform(post("/api/v1/auth/register")
+                        .with(user("admin").roles("ADMIN"))
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(registerReq)))
                 .andExpect(status().isCreated());
@@ -84,6 +104,7 @@ class AuthControllerIntegrationTest {
 
     @Test
     @DisplayName("POST /api/v1/auth/register - Should return 400 Bad Request when validation fails (Blank password)")
+    @WithMockUser(username = "admin_user", roles = {"ADMIN"})
     void registerEndpoint_ValidationFailure() throws Exception {
         RegisterRequest invalidRequest = RegisterRequest.builder()
                 .username("invalid_user")
