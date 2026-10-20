@@ -1,0 +1,43 @@
+name: Pharmacy Backend CI/CD Pipeline
+
+# Trigger pipeline on push, pull request, or manual dispatch
+on:
+  push:
+    branches: [ "feature/ci-cd" ]
+  pull_request:
+    branches: [ "feature/ci-cd" ]
+  workflow_dispatch: # Allows manual trigger from GitHub Actions UI
+
+jobs:
+  build-and-test:
+    name: Build, Test & Package WAR
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out repository source code onto the runner
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Java 21 environment with Maven caching
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven' # Caches Maven dependencies for faster builds
+
+      # Step 3: Run comprehensive automated test suite with the isolated test profile
+      - name: Run Automated Tests
+        run: mvn test -Dspring.profiles.active=test
+
+      # Step 4: Package application into an executable deployable WAR artifact
+      - name: Build WAR Package
+        run: mvn clean package -DskipTests
+
+      # Step 5: Upload the generated .war file as a downloadable GitHub artifact
+      - name: Upload WAR Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pharmacy-system-war-package
+          path: target/*.war
+          retention-days: 7 # Keeps the artifact downloadable for 7 days
