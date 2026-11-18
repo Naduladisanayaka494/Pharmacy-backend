@@ -2,7 +2,9 @@ package com.pharmacy.system.repository;
 
 import com.pharmacy.system.dto.StockSummaryDTO;
 import com.pharmacy.system.entity.MedicineBatch;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,14 +16,15 @@ import java.util.Optional;
 @Repository
 public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Long> {
 
-
     boolean existsByProductCatalog_DrugCodeAndBatchNumber(String drugCode, String batchNumber);
 
     List<MedicineBatch> findByProductCatalog_DrugCode(String drugCode);
 
     Optional<MedicineBatch> findByProductCatalog_DrugCodeAndBatchNumber(String drugCode, String batchNumber);
 
-
+    /**
+     * Read-only FEFO query for browsing available dispensing batches.
+     */
     @Query("""
         SELECT b FROM MedicineBatch b
         WHERE b.productCatalog.drugCode = :drugCode
@@ -34,6 +37,22 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
             @Param("currentDate") LocalDate currentDate
     );
 
+    /**
+     * Pessimistic Locking FEFO query for transactional stock deduction during POS checkout.
+     * Locks rows in database (SELECT ... FOR UPDATE) to prevent race conditions and negative stock.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+        SELECT b FROM MedicineBatch b
+        WHERE b.productCatalog.drugCode = :drugCode
+          AND b.stockQty > 0
+          AND b.expDate > :currentDate
+        ORDER BY b.expDate ASC, b.mfgDate ASC
+    """)
+    List<MedicineBatch> findAvailableBatchesForDeductionWithLock(
+            @Param("drugCode") String drugCode,
+            @Param("currentDate") LocalDate currentDate
+    );
 
     @Query("""
         SELECT b FROM MedicineBatch b
@@ -46,7 +65,6 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
             @Param("thresholdDate") LocalDate thresholdDate
     );
 
-
     @Query("""
         SELECT b FROM MedicineBatch b
         WHERE b.stockQty > 0
@@ -54,7 +72,6 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
         ORDER BY b.expDate ASC
     """)
     List<MedicineBatch> findExpiredBatchesWithStock(@Param("currentDate") LocalDate currentDate);
-
 
     @Query("""
         SELECT COALESCE(SUM(b.stockQty), 0)
@@ -66,7 +83,6 @@ public interface MedicineBatchRepository extends JpaRepository<MedicineBatch, Lo
             @Param("drugCode") String drugCode,
             @Param("currentDate") LocalDate currentDate
     );
-
 
     @Query("""
         SELECT new com.pharmacy.system.dto.StockSummaryDTO(
